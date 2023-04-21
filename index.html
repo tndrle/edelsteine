@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Edelsteine</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+    />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    <style>
+      .selected {
+        text-decoration: underline;
+        text-decoration-thickness: 3px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app" class="container is-max-desktop pt-5 px-5">
+      <div class="buttons">
+        <button
+          v-for="(name, level) in levelNames"
+          class="button has-text-weight-bold"
+          :class="[ 'is-' + color(level), { selected: selectedLevel == level } ]"
+          @click="selectedLevel = level"
+        >
+          {{ name }}
+        </button>
+      </div>
+
+      <div class="buttons">
+        <button
+          class="button is-light has-text-weight-bold"
+          v-for="type in types"
+          :class="{ selected: lastType == type }"
+          @click="collectTower(type)"
+        >
+          {{ type }}
+        </button>
+      </div>
+
+      <table class="table is-narrow is-striped">
+        <tr v-for="(combination, index) in prioritizedCombinations">
+          <td v-if="combination">
+            <a
+              class="has-text-black"
+              v-if="isComplete(combination)"
+              @click="clear(combination)"
+              >✔</a
+            >
+            <span v-else>&nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </td>
+          <td v-if="combination">{{ combination.name }}</td>
+          <td
+            v-if="combination"
+            v-for="t in sortedCombinationTowers(combination.towers)"
+          >
+            <b
+              :class="[ 'has-text-' + (isCollected(t) ? 'grey-light' : color(t)) ]"
+              >{{ displayName(t) }}</b
+            >
+          </td>
+          <td v-else colspan="6" class="has-background-white pt-5"></td>
+        </tr>
+      </table>
+
+      <div class="field is-grouped is-grouped-multiline">
+        <div class="control" v-for="[type, counts] in collectedTowersCounts">
+          <div class="tags has-addons">
+            <b class="tag is-medium">{{ type }}</b>
+            <a
+              v-for="[level, count] in counts"
+              class="tag is-medium"
+              :class="['is-' + color(level)]"
+              @click="remove(level + type)"
+              >{{ levelNamesShort[level] }} {{ count }}</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+
+      const { createApp } = Vue;
+
+      class DefaultMap extends Map {
+        get(key) {
+          if (!this.has(key)) this.set(key, this.defaultFunction());
+          return super.get(key);
+        }
+
+        constructor(defaultFunction) {
+          super();
+          this.defaultFunction = defaultFunction;
+        }
+      }
+
+      function getLevel(levelOrTower) {
+        return parseInt(levelOrTower);
+      }
+
+      function getType(tower) {
+        return tower.substring(1);
+      }
+
+      createApp({
+        data() {
+          return {
+            levelNames: ["Chipped", "Flawed", "Normal", "Flawless", "Perfect"],
+            levelNamesShort: ["C", "F", "N", "S", "P"],
+            types: [
+              "Amethyst",
+              "Aquamarine",
+              "Diamond",
+              "Emerald",
+              "Opal",
+              "Ruby",
+              "Sapphire",
+              "Topaz",
+            ],
+            combinations: [
+              {
+                name: "Paraiba Tourmaline",
+                towers: ["1Aquamarine", "1Emerald", "3Opal", "4Aquamarine"],
+              },
+              {
+                name: "Black Opal",
+                towers: ["2Aquamarine", "3Diamond", "4Opal"],
+              },
+              {
+                name: "Silver",
+                towers: ["0Diamond", "0Sapphire", "0Topaz"],
+              },
+              {
+                name: "Malachite",
+                towers: ["0Aquamarine", "0Emerald", "0Opal"],
+              },
+              {
+                name: "Star Ruby",
+                towers: ["0Amethyst", "0Ruby", "1Ruby"],
+              },
+              {
+                name: "Jade",
+                towers: ["1Sapphire", "2Emerald", "2Opal"],
+              },
+              {
+                name: "Red Crystal",
+                towers: ["1Amethyst", "2Ruby", "3Emerald"],
+              },
+              {
+                name: "Dark Emerald",
+                towers: ["1Topaz", "3Sapphire", "4Emerald"],
+              },
+              {
+                name: "Yellow Sapphire",
+                towers: ["3Ruby", "3Topaz", "4Sapphire"],
+              },
+              {
+                name: "Blood Stone",
+                towers: ["2Amethyst", "3Aquamarine", "4Ruby"],
+              },
+              {
+                name: "Pink Diamond",
+                towers: ["2Diamond", "2Topaz", "4Diamond"],
+              },
+              {
+                name: "Gold",
+                towers: ["1Diamond", "3Amethyst", "4Amethyst"],
+              },
+              {
+                name: "Uranium 238",
+                towers: ["1Opal", "2Sapphire", "4Topaz"],
+              },
+            ],
+            selectedLevel: 0,
+            lastType: "",
+            collectedTowers: [],
+          };
+        },
+        mounted() {
+          for (const c of this.combinations) {
+            c["quality"] = c.towers.reduce((acc, t) => acc + getLevel(t), 0);
+          }
+        },
+        methods: {
+          color(levelOrTower) {
+            switch (getLevel(levelOrTower)) {
+              case 0:
+                return "link";
+              case 1:
+                return "primary";
+              case 2:
+                return "dark";
+              case 3:
+                return "info";
+              case 4:
+                return "danger";
+            }
+          },
+          displayName(tower) {
+            if (tower == null) return "";
+            const level = getLevel(tower);
+            const levelName = level == 2 ? "" : `${this.levelNames[level]} `;
+            return levelName + getType(tower);
+          },
+          collectTower(type) {
+            this.lastType = type;
+            this.collectedTowers.push(this.selectedLevel + type);
+          },
+          isComplete(combination) {
+            return combination.towers.every((t) => this.isCollected(t));
+          },
+          isCollected(tower) {
+            return this.collectedTowersSet.has(tower);
+          },
+          numCollected(combination) {
+            return combination.towers.reduce(
+              (acc, t) => acc + (this.isCollected(t) ? 1 : 0),
+              0
+            );
+          },
+          remove(tower) {
+            this.collectedTowers.splice(this.collectedTowers.indexOf(tower), 1);
+          },
+          clear(combination) {
+            for (const tower of combination.towers) {
+              this.remove(tower);
+            }
+          },
+          sortedCombinationTowers(towers) {
+            const r = [...towers].sort(
+              (a, b) =>
+                this.isCollected(a) - this.isCollected(b) || a.localeCompare(b)
+            );
+            if (r.length == 3) r.push(null); // last table column empty except for one combination
+            return r;
+          },
+        },
+        computed: {
+          collectedTowersCounts() {
+            const r = new DefaultMap(() => new DefaultMap(() => 0));
+            const sortedTowers = [...this.collectedTowers].sort(
+              (a, b) =>
+                getType(a).localeCompare(getType(b)) || a.localeCompare(b)
+            );
+            for (const tower of sortedTowers) {
+              const level = getLevel(tower);
+              const counts = r.get(getType(tower));
+              counts.set(level, counts.get(level) + 1);
+            }
+            return r;
+          },
+          collectedTowersSet() {
+            return new Set(this.collectedTowers);
+          },
+          prioritizedCombinations() {
+            const combinations = [...this.combinations].sort(
+              (a, b) =>
+                this.numCollected(b) - this.numCollected(a) ||
+                b.quality - a.quality
+            );
+            for (const [i, c] of combinations.entries()) {
+              if (c.towers.every((t) => !this.isCollected(t))) {
+                if (i > 0) combinations.splice(i, 0, null); // empty row to separate partially collected
+                break;
+              }
+            }
+            return combinations;
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
